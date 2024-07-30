@@ -93,9 +93,7 @@ function modulesMenu() {
       4 "Deselect all Modules" \
       5 "Choose Modules" \
       6 "Add external module" \
-      7 "Edit Modules copied to DSM" \
-      8 "Force-copy loaded Modules to DSM" \
-      9 "Blacklist Modules to prevent loading in DSM" \
+      7 "Blacklist Modules to prevent loading in DSM" \
       2>"${TMP_PATH}/resp"
     [ $? -ne 0 ] && break
     case "$(cat ${TMP_PATH}/resp)" in
@@ -209,49 +207,6 @@ function modulesMenu() {
         BUILDDONE="$(readConfigKey "arc.builddone" "${USER_CONFIG_FILE}")"
         ;;
       7)
-        if [ -f "${USER_UP_PATH}/modulelist" ]; then
-          cp -f "${USER_UP_PATH}/modulelist" "${TMP_PATH}/modulelist.tmp"
-        else
-          cp -f "${ARC_PATH}/include/modulelist" "${TMP_PATH}/modulelist.tmp"
-        fi
-        while true; do
-          dialog --backtitle "$(backtitle)" --title "Edit Modules copied to DSM" \
-            --editbox "${TMP_PATH}/modulelist.tmp" 0 0 2>"${TMP_PATH}/modulelist.user"
-          [ $? -ne 0 ] && return
-          [ ! -d "${USER_UP_PATH}" ] && mkdir -p "${USER_UP_PATH}"
-          mv -f "${TMP_PATH}/modulelist.user" "${USER_UP_PATH}/modulelist"
-          dos2unix "${USER_UP_PATH}/modulelist"
-          break
-        done
-        writeConfigKey "arc.builddone" "false" "${USER_CONFIG_FILE}"
-        BUILDDONE="$(readConfigKey "arc.builddone" "${USER_CONFIG_FILE}")"
-        ;;
-      8)
-        if [ -f "${USER_UP_PATH}/modulelist" ]; then
-          cp -f "${USER_UP_PATH}/modulelist" "${TMP_PATH}/modulelist.tmp"
-        else
-          cp -f "${ARC_PATH}/include/modulelist" "${TMP_PATH}/modulelist.tmp"
-        fi
-        echo -e "\n\n# Arc Modules" >>"${TMP_PATH}/modulelist.tmp"
-        KOLIST=""
-        for I in $(lsmod | awk -F' ' '{print $1}' | grep -v 'Module'); do
-          KOLIST+="$(getdepends "${PLATFORM}" "${KVERP}" "${I}") ${I} "
-        done
-        KOLIST=($(echo ${KOLIST} | tr ' ' '\n' | sort -u))
-        while read -r ID DESC; do
-          for MOD in ${KOLIST[@]}; do
-            [ "${MOD}" == "${ID}" ] && echo "F ${ID}.ko" >>"${TMP_PATH}/modulelist.tmp"
-          done
-        done < <(getAllModules "${PLATFORM}" "${KVERP}")
-        [ ! -d "${USER_UP_PATH}" ] && mkdir -p "${USER_UP_PATH}"
-        mv -f "${TMP_PATH}/modulelist.tmp" "${USER_UP_PATH}/modulelist"
-        dos2unix "${USER_UP_PATH}/modulelist"
-        dialog --backtitle "$(backtitle)" --title "Loaded Modules Copy" \
-            --msgbox "All loaded Modules will be copied to DSM!" 5 50
-        writeConfigKey "arc.builddone" "false" "${USER_CONFIG_FILE}"
-        BUILDDONE="$(readConfigKey "arc.builddone" "${USER_CONFIG_FILE}")"
-        ;;
-      9)
         MSG=""
         MSG+="The blacklist is used to prevent the kernel from loading specific modules.\n"
         MSG+="The blacklist is a list of module names separated by ','.\n"
@@ -1163,7 +1118,7 @@ function sysinfo() {
     TEXT+="\n\Zb$(lspci -s ${NETBUS} -nnk | awk '{$1=""}1' | awk '{$1=$1};1')\Zn\n"
   done
   # Print Config Informations
-  TEXT+="\n\Z4> Arc: ${ARC_VERSION} | Branch: ${ARCBRANCH}\Zn"
+  TEXT+="\n\Z4> Arc: ${ARC_VERSION} | Branch: ${ARCBRANCH:-x}\Zn"
   TEXT+="\n  Subversion: \ZbAddons ${ADDONSVERSION} | Configs ${CONFIGSVERSION} | LKM ${LKMVERSION} | Modules ${MODULESVERSION} | Patches ${PATCHESVERSION}\Zn"
   TEXT+="\n  Config | Build: \Zb${CONFDONE} | ${BUILDDONE}\Zn"
   TEXT+="\n  Config Version: \Zb${CONFIGVER}\Zn"
