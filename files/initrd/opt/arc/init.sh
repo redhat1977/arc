@@ -14,7 +14,7 @@ BUS=$(getBus "${LOADER_DISK}")
 [ -d /sys/firmware/efi ] && EFI=1 || EFI=0
 
 if [ -f "${PART1_PATH}/ARC-BRANCH" ]; then
-  ARC_BRANCH=$(cat "${PART1_PATH}/ARC-BRANCH")
+  ARCBRANCH=$(cat "${PART1_PATH}/ARC-BRANCH")
 fi
 
 # Print Title centralized
@@ -22,7 +22,7 @@ clear
 COLUMNS=${COLUMNS:-50}
 BANNER="$(figlet -c -w "$(((${COLUMNS})))" "Arc Loader")"
 TITLE="Version:"
-TITLE+=" ${ARC_BASE_TITLE} | ${ARC_BRANCH}"
+TITLE+=" ${ARC_BASE_TITLE} | ${ARCBRANCH}"
 printf "\033[1;30m%*s\n" ${COLUMNS} ""
 printf "\033[1;30m%*s\033[A\n" ${COLUMNS} ""
 printf "\033[1;34m%*s\033[0m\n" ${COLUMNS} "${BANNER}"
@@ -51,7 +51,7 @@ else
 fi
 [ -f "${PART3_PATH}/automated" ] && rm -f "${PART3_PATH}/automated" >/dev/null 2>&1 || true
 if [ -n "${ARCBRANCH}" ]; then
-  writeConfigKey "arc.branch" "${ARC_BRANCH}" "${USER_CONFIG_FILE}"
+  writeConfigKey "arc.branch" "${ARCBRANCH}" "${USER_CONFIG_FILE}"
 fi
 
 ETHX="$(ls /sys/class/net 2>/dev/null | grep eth)"
@@ -174,7 +174,11 @@ if [[ -z "${IPCON}" || "${ARCMODE}" == "automated" ]] && [ -f "${SYSTEM_PATH}/ar
   mount --bind "${SYSTEM_PATH}" "/opt/arc"
 elif [ -n "${IPCON}" ]; then
   echo -e "\033[1;34mDownloading Arc System Files...\033[0m"
-  getArcSystem
+  if echo "${ARC_BASE_TITLE}" | grep -q "dev"; then
+    getArcSystem "dev"
+  else
+    getArcSystem
+  fi
   [ ! -f "${SYSTEM_PATH}/arc.sh" ] && echo -e "\033[1;31mError: Can't get Arc System Files...\033[0m" || mount --bind "${SYSTEM_PATH}" "/opt/arc"
 else
   echo -e "\033[1;31mNo Network Connection found!\033[0m\n\033[1;31mError: Can't get Arc System Files...\033[0m"
