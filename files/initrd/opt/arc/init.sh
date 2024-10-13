@@ -14,7 +14,7 @@ BUS=$(getBus "${LOADER_DISK}")
 [ -d /sys/firmware/efi ] && EFI=1 || EFI=0
 
 if [ -f "${PART1_PATH}/ARC-BRANCH" ]; then
-  ARCBRANCH=$(cat "${PART1_PATH}/ARC-BRANCH")
+  ARC_BRANCH=$(cat "${PART1_PATH}/ARC-BRANCH")
 fi
 
 # Print Title centralized
@@ -22,7 +22,7 @@ clear
 COLUMNS=${COLUMNS:-50}
 BANNER="$(figlet -c -w "$(((${COLUMNS})))" "Arc Loader")"
 TITLE="Version:"
-TITLE+=" ${ARC_BASE_TITLE} | ${ARCBRANCH}"
+TITLE+=" ${ARC_BASE_TITLE} | ${ARC_BRANCH}"
 printf "\033[1;30m%*s\n" ${COLUMNS} ""
 printf "\033[1;30m%*s\033[A\n" ${COLUMNS} ""
 printf "\033[1;34m%*s\033[0m\n" ${COLUMNS} "${BANNER}"
@@ -37,6 +37,7 @@ if [ ! -f "${USER_CONFIG_FILE}" ]; then
   touch "${USER_CONFIG_FILE}"
 fi
 initConfigKey "arc" "{}" "${USER_CONFIG_FILE}"
+initConfigKey "arc.autoupdate" "true" "${USER_CONFIG_FILE}"
 initConfigKey "device" "{}" "${USER_CONFIG_FILE}"
 initConfigKey "network" "{}" "${USER_CONFIG_FILE}"
 initConfigKey "time" "{}" "${USER_CONFIG_FILE}"
@@ -50,8 +51,8 @@ else
   writeConfigKey "arc.mode" "dsm" "${USER_CONFIG_FILE}"
 fi
 [ -f "${PART3_PATH}/automated" ] && rm -f "${PART3_PATH}/automated" >/dev/null 2>&1 || true
-if [ -n "${ARCBRANCH}" ]; then
-  writeConfigKey "arc.branch" "${ARCBRANCH}" "${USER_CONFIG_FILE}"
+if [ -n "${ARC_BRANCH}" ]; then
+  writeConfigKey "arc.branch" "${ARC_BRANCH}" "${USER_CONFIG_FILE}"
 fi
 # Sort network interfaces
 if arrayExistItem "sortnetif:" $(readConfigMap "addons" "${USER_CONFIG_FILE}"); then
@@ -166,8 +167,20 @@ for ETH in ${ETHX}; do
     sleep 1
   done
 done
-
 echo
+
+# Check for Base Version
+ARCAUTOUPDATE="$(readConfigKey "arc.autoupdate" "${USER_CONFIG_FILE}")"
+if [ "${ARCAUTOUPDATE}" == "true" ]; then
+  if echo "${ARC_BASE_TITLE}" | grep -v "dev"; then
+    TAG="$(curl -m 10 -skL "https://api.github.com/repos/AuxXxilium/arc/releases" | jq -r ".[].tag_name" | grep -v "dev" | sort -rV | head -1)"
+    if [ "${TAG}" != "${ARC_BASE_VERSION}" ]; then
+      echo -e "\033[1;34mNew Base Image found...\033[0m"
+      updateLoader
+      rebootTo "${ARCMODE}"
+    fi
+  fi
+fi
 # Download Arc System Files
 mkdir -p "${SYSTEM_PATH}"
 if [[ -z "${IPCON}" || "${ARCMODE}" == "automated" ]] && [ -f "${SYSTEM_PATH}/arc.sh" ]; then
@@ -177,7 +190,7 @@ elif [ -n "${IPCON}" ]; then
   echo -e "\033[1;34mDownloading Arc System Files...\033[0m"
   if echo "${ARC_BASE_TITLE}" | grep -q "dev"; then
     getArcSystem "dev"
-  else
+  elif [ "${ARCAUTOUPDATE}" == "true" ]; then
     getArcSystem
   fi
   [ ! -f "${SYSTEM_PATH}/arc.sh" ] && echo -e "\033[1;31mError: Can't get Arc System Files...\033[0m" || mount --bind "${SYSTEM_PATH}" "/opt/arc"
