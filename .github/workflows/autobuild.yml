@@ -5,17 +5,14 @@
 # See /LICENSE for more information.
 #
 
-name: Build Arc Base Dev
+name: Build Arc Image Dev
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dev
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@main
@@ -53,7 +50,7 @@ jobs:
           getConfigs "files/p3/configs"
           getPatches "files/p3/patches"
           getCustom "files/p3/custom"
-          getOffline "files/p3/system/include"
+          getOffline "files/initrd/opt/arc/include"
           getLKMs "files/p3/lkms"
           getTheme "files/p1/boot/grub"
           getBuildrootx "brx"
