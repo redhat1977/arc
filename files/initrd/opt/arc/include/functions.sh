@@ -236,11 +236,11 @@ function _sort_netif() {
     ETHLIST="${ETHLIST}${BUS} ${MAC} ${ETH}\n"
   done
   local ETHLISTTMPB="$(echo -e "${ETHLIST}" | sort)"
-  local ETHLIST="$(echo -e "${ETHLISTTMPM}" | grep -v '^$')"
+  local ETHLIST="$(echo -e "${ETHLISTTMPB}" | grep -v '^$')"
   local ETHSEQ="$(echo -e "${ETHLIST}" | awk '{print $3}' | sed 's/eth//g')"
   local ETHNUM="$(echo -e "${ETHLIST}" | wc -l)"
 
-  # echo "${ETHSEQ}"
+  # echo "${ETHSEQ}" >"/tmp/ethseq"
   # sort
   if [ ! "${ETHSEQ}" = "$(seq 0 $((${ETHNUM:0} - 1)))" ]; then
     /etc/init.d/S41dhcpcd stop >/dev/null 2>&1
@@ -517,17 +517,19 @@ function ntpCheck() {
   if [ "${KEYMAP}" == "ua" ] || [ "${REGION}" == "Kyiv" ]; then
     poweroff
   fi
-  while true; do
-    NEWTAG="$(curl -m 5 -skL "https://api.github.com/repos/AuxXxilium/arc-system/releases" | jq -r ".[].tag_name" | grep -v "dev" | sort -rV | head -1)"
-    CNT=$((${CNT} + 1))
-    if [ -n "${NEWTAG}" ]; then
-      writeConfigKey "arc.offline" "false" "${USER_CONFIG_FILE}"
-      break
-    elif [ ${CNT} -ge 3 ]; then
-      writeConfigKey "arc.offline" "true" "${USER_CONFIG_FILE}"
-      break
-    fi
-  done
+  if echo "${ARC_VERSION}" | grep -v "dev"; then
+    while true; do
+      NEWTAG="$(curl -m 5 -skL "https://api.github.com/repos/AuxXxilium/arc-system/releases" | jq -r ".[].tag_name" | grep -v "dev" | sort -rV | head -1)"
+      CNT=$((${CNT} + 1))
+      if [ -n "${NEWTAG}" ]; then
+        writeConfigKey "arc.offline" "false" "${USER_CONFIG_FILE}"
+        break
+      elif [ ${CNT} -ge 3 ]; then
+        writeConfigKey "arc.offline" "true" "${USER_CONFIG_FILE}"
+        break
+      fi
+    done
+  fi
 }
 
 ###############################################################################
