@@ -111,6 +111,7 @@ function generateSerial() {
       ;;
   esac
 
+  SERIAL="$(echo "${SERIAL}" | tr '[:lower:]' '[:upper:]')"
   echo "${SERIAL}"
   return 0
 }
@@ -134,6 +135,8 @@ function generateMacAddress() {
     MACS+="$(printf '%06x%06x' $((0x${MACPRE:-"001132"})) $(($((0x${MACSUF})) + ${I})))"
     [ ${I} -lt ${NUM} ] && MACS+=" "
   done
+
+  MACS="$(echo "${MACS}" | tr '[:lower:]' '[:upper:]')"
   echo "${MACS}"
   return 0
 }
@@ -229,14 +232,14 @@ function _sort_netif() {
   local ETHLIST=""
   local ETHX="$(ls /sys/class/net/ 2>/dev/null | grep eth)" # real network cards list
   for ETH in ${ETHX}; do
-    local MAC="$(cat /sys/class/net/${ETH}/address 2>/dev/null | sed 's/://g; s/.*/\L&/')"
+    local MAC="$(cat /sys/class/net/${ETH}/address 2>/dev/null | sed 's/://g; s/.*/\L&/' | tr '[:lower:]' '[:upper:]')"
     local BUS="$(ethtool -i ${ETH} 2>/dev/null | grep bus-info | cut -d' ' -f2)"
     ETHLIST="${ETHLIST}${BUS} ${MAC} ${ETH}\n"
   done
   local ETHLISTTMPM=""
   local ETHLISTTMPB="$(echo -e "${ETHLIST}" | sort)"
   if [ -n "${1}" ]; then
-    local MACS="$(echo "${1}" | sed 's/://g; s/,/ /g; s/.*/\L&/')"
+    local MACS="$(echo "${1}" | sed 's/://g; s/,/ /g; s/.*/\L&/' | tr '[:lower:]' '[:upper:]')"
     for MACX in ${MACS}; do
       ETHLISTTMPM="${ETHLISTTMPM}$(echo -e "${ETHLISTTMPB}" | grep "${MACX}")\n"
       ETHLISTTMPB="$(echo -e "${ETHLISTTMPB}" | grep -v "${MACX}")\n"
@@ -284,7 +287,7 @@ function getBus() {
 # 1 - ethN
 function getIP() {
   local IP=""
-  MACR="$(cat /sys/class/net/${1}/address 2>/dev/null | sed 's/://g' | tr '[:upper:]' '[:lower:]')"
+  MACR="$(cat /sys/class/net/${1}/address 2>/dev/null | sed 's/://g' | tr '[:lower:]' '[:upper:]')"
   IPR="$(readConfigKey "network.${MACR}" "${USER_CONFIG_FILE}")"
   if [ -n "${IPR}" ]; then
     IFS='/' read -r -a IPRA <<<"${IPR}"
