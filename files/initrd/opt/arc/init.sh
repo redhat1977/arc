@@ -41,6 +41,7 @@ initConfigKey "arc.builddone" "false" "${USER_CONFIG_FILE}"
 initConfigKey "arc.confdone" "false" "${USER_CONFIG_FILE}"
 initConfigKey "arc.dynamic" "false" "${USER_CONFIG_FILE}"
 initConfigKey "arc.key" "" "${USER_CONFIG_FILE}"
+initConfigKey "arc.offline" "false" "${USER_CONFIG_FILE}"
 initConfigKey "arc.patch" "false" "${USER_CONFIG_FILE}"
 initConfigKey "arc.version" "${ARC_VERSION}" "${USER_CONFIG_FILE}"
 initConfigKey "bootipwait" "30" "${USER_CONFIG_FILE}"
@@ -88,10 +89,6 @@ fi
 [ -f "${PART3_PATH}/automated" ] && rm -f "${PART3_PATH}/automated" >/dev/null 2>&1 || true
 if [ -n "${ARC_BRANCH}" ]; then
   writeConfigKey "arc.branch" "${ARC_BRANCH}" "${USER_CONFIG_FILE}"
-fi
-# Sort network interfaces
-if arrayExistItem "sortnetif:" $(readConfigMap "addons" "${USER_CONFIG_FILE}"); then
-  _sort_netif "$(readConfigKey "addons.sortnetif" "${USER_CONFIG_FILE}")"
 fi
 # Read/Write IP/Mac to config
 ETHX="$(ls /sys/class/net 2>/dev/null | grep eth)"
