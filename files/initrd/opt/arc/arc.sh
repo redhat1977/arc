@@ -102,10 +102,10 @@ function arcModel() {
         COMPATIBLE=1
         DT="$(readConfigKey "platforms.${A}.dt" "${P_FILE}")"
         FLAGS="$(readConfigArray "platforms.${A}.flags" "${P_FILE}")"
-        ARCCONF="$(readConfigKey "${M}.serial" "${S_FILE}")"
+        ARCCONFM="$(readConfigKey "${M}.serial" "${S_FILE}")"
         ARC=""
         BETA=""
-        [ -n "${ARCCONF}" ] && ARC="x" || ARC=""
+        [ -n "${ARCCONFM}" ] && ARC="x" || ARC=""
         [ "${DT}" == "true" ] && DTS="x" || DTS=""
         IGPUS=""
         [[ "${A}" == "apollolake" || "${A}" == "geminilake" ]] && IGPUS="up to 9th"
@@ -527,19 +527,17 @@ function arcSettings() {
     [ $? -ne 0 ] && return 1
   fi
   # Check for CPU Frequency Scaling & Governor
-  if [ "${ARCMODE}" == "config" ] && [ "${CPUFREQ}" == "true" ] && [ "${ACPISYS}" == "true" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
+  if [ "${ARCMODE}" == "config" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
     dialog --backtitle "$(backtitle)" --colors --title "CPU Frequency Scaling" \
       --infobox "Generating Governor Table..." 3 40
     governorSelection
     [ $? -ne 0 ] && return 1
-  elif [ "${ARCMODE}" == "automated" ] && [ "${CPUFREQ}" == "true" ] && [ "${ACPISYS}" == "true" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
+  elif [ "${ARCMODE}" == "automated" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
     if [ "${PLATFORM}" == "epyc7002" ]; then
       writeConfigKey "addons.cpufreqscaling" "schedutil" "${USER_CONFIG_FILE}"
     else
       writeConfigKey "addons.cpufreqscaling" "conservative" "${USER_CONFIG_FILE}"
     fi
-  else
-    deleteConfigKey "addons.cpufreqscaling" "${USER_CONFIG_FILE}"
   fi
   if [ "${ARCMODE}" == "config" ]; then
     # Check for DT and HBA/Raid Controller
@@ -566,9 +564,9 @@ function arcSettings() {
         --msgbox "WARN: Your System doesn't support Hardwareencryption in DSM. (AES)" 5 70
     fi
     # Check for CPUFREQ
-    if [[ "${CPUFREQ}" == "false" || "${ACPISYS}" == "false" ]]; then
+    if [[ "${CPUFREQ}" == "false" || "${ACPISYS}" == "false" ]] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
       dialog --backtitle "$(backtitle)" --title "Arc Warning" \
-        --msgbox "WARN: Your System doesn't support CPU Frequency Scaling in DSM." 5 70
+        --msgbox "WARN: It is possible that CPU Frequency Scaling is not working properly with your System." 6 80
     fi
   fi
   EMMCBOOT="$(readConfigKey "emmcboot" "${USER_CONFIG_FILE}")"
