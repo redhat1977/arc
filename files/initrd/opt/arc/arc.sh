@@ -266,46 +266,52 @@ function arcVersion() {
     PAT_URL=""
     PAT_HASH=""
     URLVER=""
-    while true; do
-      PJ="$(python ${ARC_PATH}/include/functions.py getpats4mv -m "${MODEL}" -v "${PRODUCTVER}")"
-      if [[ -z "${PJ}" || "${PJ}" == "{}" ]]; then
-        MSG="Unable to connect to Synology API, Please check the network and try again!"
-        dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
-          --yes-label "Retry" \
-          --yesno "${MSG}" 0 0
-        [ $? -eq 0 ] && continue # yes-button
-        return 1
-      else
-        PVS="$(echo "${PJ}" | jq -r 'keys | sort | reverse | join("\n")')"
-        [ -f "${TMP_PATH}/versions" ] && rm -f "${TMP_PATH}/versions" >/dev/null 2>&1 && touch "${TMP_PATH}/versions"
-        while IFS= read -r line; do
-          VERSION="${line}"
-          CHECK_URL=$(echo "${PJ}" | jq -r ".\"${VERSION}\".url")
-          if curl --head -skL -m 5 "${CHECK_URL}" | head -n 1 | grep -q "404\|403"; then
-            continue
-          else
-            echo "${VERSION}" >>"${TMP_PATH}/versions"
-          fi
-        done < <(echo "${PVS}")
-        DSMPVS="$(cat ${TMP_PATH}/versions)"
-        dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
-          --no-items --menu "Choose a DSM Build" 0 0 0 ${DSMPVS} \
-        2>${TMP_PATH}/resp
-        RET=$?
-        [ ${RET} -ne 0 ] && return
-        PV=$(cat ${TMP_PATH}/resp)
-        PAT_URL=$(echo "${PJ}" | jq -r ".\"${PV}\".url")
-        PAT_HASH=$(echo "${PJ}" | jq -r ".\"${PV}\".sum")
-        URLVER="$(echo "${PV}" | cut -d'.' -f1,2)"
-        [ "${PRODUCTVER}" != "${URLVER}" ] && PRODUCTVER="${URLVER}"
-        writeConfigKey "productver" "${PRODUCTVER}" "${USER_CONFIG_FILE}"
-        [ -n "${PAT_URL}" ] && [ -n "${PAT_HASH}" ] && VALID="true" && break
-      fi
-    done
+    if [ "${ARCOFFLINE}" == "false" ]; then
+      while true; do
+        PJ="$(python ${ARC_PATH}/include/functions.py getpats4mv -m "${MODEL}" -v "${PRODUCTVER}")"
+        if [[ -z "${PJ}" || "${PJ}" == "{}" ]]; then
+          MSG="Unable to connect to Synology API, Please check the network and try again!"
+          dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
+            --yes-label "Retry" \
+            --yesno "${MSG}" 0 0
+          [ $? -eq 0 ] && continue # yes-button
+          return 1
+        else
+          PVS="$(echo "${PJ}" | jq -r 'keys | sort | reverse | join("\n")')"
+          [ -f "${TMP_PATH}/versions" ] && rm -f "${TMP_PATH}/versions" >/dev/null 2>&1 && touch "${TMP_PATH}/versions"
+          while IFS= read -r line; do
+            VERSION="${line}"
+            CHECK_URL=$(echo "${PJ}" | jq -r ".\"${VERSION}\".url")
+            if curl --head -skL -m 5 "${CHECK_URL}" | head -n 1 | grep -q "404\|403"; then
+              continue
+            else
+              echo "${VERSION}" >>"${TMP_PATH}/versions"
+            fi
+          done < <(echo "${PVS}")
+          DSMPVS="$(cat ${TMP_PATH}/versions)"
+          dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
+            --no-items --menu "Choose a DSM Build" 0 0 0 ${DSMPVS} \
+          2>${TMP_PATH}/resp
+          RET=$?
+          [ ${RET} -ne 0 ] && return
+          PV=$(cat ${TMP_PATH}/resp)
+          PAT_URL=$(echo "${PJ}" | jq -r ".\"${PV}\".url")
+          PAT_HASH=$(echo "${PJ}" | jq -r ".\"${PV}\".sum")
+          URLVER="$(echo "${PV}" | cut -d'.' -f1,2)"
+          [ "${PRODUCTVER}" != "${URLVER}" ] && PRODUCTVER="${URLVER}"
+          writeConfigKey "productver" "${PRODUCTVER}" "${USER_CONFIG_FILE}"
+          [ -n "${PAT_URL}" ] && [ -n "${PAT_HASH}" ] && VALID="true" && break
+        fi
+      done
+    elif [ "${ARCOFFLINE}" == "true" ]; then
+      PJ="$(python ${ARC_PATH}/include/functions.py getpats -m "${MODEL}" -r "${PRODUCTVER}")"
+      PAT_URL=$(echo "${PJ}" | jq -r '.[0].mLink')
+      PAT_HASH=$(echo "${PJ}" | jq -r '.[0].mCheckSum')
+    fi
     if [ -z "${PAT_URL}" ] || [ -z "${PAT_HASH}" ]; then
       MSG="Failed to get PAT Data.\n"
       MSG+="Please manually fill in the URL and Hash of PAT.\n"
-      MSG+="You will find these Data at: https://auxxxilium.tech/wiki/arc-loader-arc-loader/url-hash-liste"
+      MSG+="You will find these Data at: https://github.com/AuxXxilium/arc-dsm/blob/main/webdata.txt"
       dialog --backtitle "$(backtitle)" --colors --title "Arc Build" --default-button "OK" \
         --form "${MSG}" 11 120 2 "Url" 1 1 "${PAT_URL}" 1 8 110 0 "Hash" 2 1 "${PAT_HASH}" 2 8 110 0 \
         2>"${TMP_PATH}/resp"
@@ -337,6 +343,10 @@ function arcVersion() {
         writeConfigKey "paturl" "${PAT_URL}" "${USER_CONFIG_FILE}"
         writeConfigKey "pathash" "${PAT_HASH}" "${USER_CONFIG_FILE}"
       fi
+    elif [ "${ARCOFFLINE}" == "true" ]; then
+      VALID="true"
+      writeConfigKey "paturl" "${PAT_URL}" "${USER_CONFIG_FILE}"
+      writeConfigKey "pathash" "${PAT_HASH}" "${USER_CONFIG_FILE}"
     fi
   elif [ "${ARCMODE}" == "automated" ] || [ "${ARCRESTORE}" == "true" ]; then
     VALID="true"
@@ -346,10 +356,9 @@ function arcVersion() {
   PAT_HASH="$(readConfigKey "pathash" "${USER_CONFIG_FILE}")"
   if [ "${PAT_HASH}" != "${PAT_HASH_CONF}" ] || [ "${PAT_URL}" != "${PAT_URL_CONF}" ]; then
     rm -f "${ORI_ZIMAGE_FILE}" "${ORI_RDGZ_FILE}" "${MOD_ZIMAGE_FILE}" "${MOD_RDGZ_FILE}" >/dev/null 2>&1 || true
-    rm -f "${PART1_PATH}/grub_cksum.syno" "${PART1_PATH}/GRUB_VER" "${PART2_PATH}/"* >/dev/null 2>&1 || true
+    rm -f "${PART1_PATH}/grub_cksum.syno" "${PART1_PATH}/GRUB_VER" >/dev/null 2>&1 || true
     rm -f "${USER_UP_PATH}/"*.tar >/dev/null 2>&1 || true
   fi
-  getpatfiles
   # Change Config if Files are valid
   if [ "${VALID}" == "true" ]; then
     dialog --backtitle "$(backtitle)" --title "Arc Config" \
@@ -527,12 +536,12 @@ function arcSettings() {
     [ $? -ne 0 ] && return 1
   fi
   # Check for CPU Frequency Scaling & Governor
-  if [ "${ARCMODE}" == "config" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
+  if [ "${ARCMODE}" == "config" ] && [ "${MACHINE}" == "Native" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
     dialog --backtitle "$(backtitle)" --colors --title "CPU Frequency Scaling" \
       --infobox "Generating Governor Table..." 3 40
     governorSelection
     [ $? -ne 0 ] && return 1
-  elif [ "${ARCMODE}" == "automated" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
+  elif [ "${ARCMODE}" == "automated" ] && [ "${MACHINE}" == "Native" ] && readConfigMap "addons" "${USER_CONFIG_FILE}" | grep -q "cpufreqscaling"; then
     if [ "${PLATFORM}" == "epyc7002" ]; then
       writeConfigKey "addons.cpufreqscaling" "schedutil" "${USER_CONFIG_FILE}"
     else
@@ -659,7 +668,6 @@ function arcSummary() {
   SUMMARY+="\n>> DSM DT: \Zb${DT}\Zn"
   SUMMARY+="\n>> DSM PAT URL: \Zb${PAT_URL}\Zn"
   SUMMARY+="\n>> DSM PAT Hash: \Zb${PAT_HASH}\Zn"
-  SUMMARY+="\n>> DeviceTree: \Zb${DT}\Zn"
   [ "${MODEL}" == "SA6400" ] && SUMMARY+="\n>> Kernel: \Zb${KERNEL}\Zn"
   SUMMARY+="\n>> Kernel Version: \Zb${KVER}\Zn"
   SUMMARY+="\n"
@@ -746,14 +754,14 @@ function make() {
       livepatch
       sleep 3
     ) 2>&1 | dialog --backtitle "$(backtitle)" --colors --title "Build Loader" \
-      --progressbox "Welcome at the Dark Side..." 20 70
+      --progressbox "Magical things happening..." 20 70
   else
     dialog --backtitle "$(backtitle)" --title "Build Loader" --aspect 18 \
       --infobox "Configuration issue found.\nCould not build Loader!\nExit." 5 40
     # Set Build to false
     writeConfigKey "arc.builddone" "false" "${USER_CONFIG_FILE}"
     BUILDDONE="$(readConfigKey "arc.builddone" "${USER_CONFIG_FILE}")"
-    sleep 5
+    sleep 2
     return 1
   fi
   if [ -f "${ORI_ZIMAGE_FILE}" ] && [ -f "${ORI_RDGZ_FILE}" ] && [ -f "${MOD_ZIMAGE_FILE}" ] && [ -f "${MOD_RDGZ_FILE}" ]; then
@@ -767,7 +775,7 @@ function make() {
     # Set Build to false
     writeConfigKey "arc.builddone" "false" "${USER_CONFIG_FILE}"
     BUILDDONE="$(readConfigKey "arc.builddone" "${USER_CONFIG_FILE}")"
-    sleep 5
+    sleep 2
     return 1
   fi
 }

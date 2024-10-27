@@ -1618,14 +1618,6 @@ function resetLoader() {
     rm -f "${ORI_ZIMAGE_FILE}" "${ORI_RDGZ_FILE}" "${MOD_ZIMAGE_FILE}" "${MOD_RDGZ_FILE}" >/dev/null
   fi
   [ -d "${UNTAR_PAT_PATH}" ] && rm -rf "${UNTAR_PAT_PATH}" >/dev/null
-  [ -d "${SYSTEM_PATH}" ] && rm -rf "${SYSTEM_PATH}" >/dev/null
-  [ -d "${ADDONS_PATH}" ] && rm -rf "${ADDONS_PATH}" >/dev/null
-  [ -d "${MODULES_PATH}" ] && rm -rf "${MODULES_PATH}" >/dev/null
-  [ -d "${MODEL_CONFIG_PATH}" ] && rm -rf "${MODEL_CONFIG_PATH}" >/dev/null
-  [ -d "${PATCH_PATH}" ] && rm -rf "${PATCH_PATH}" >/dev/null
-  [ -d "${LKMS_PATH}" ] && rm -rf "${LKMS_PATH}" >/dev/null
-  [ -d "${CUSTOM_PATH}" ] && rm -rf "${CUSTOM_PATH}" >/dev/null
-  [ -d "${USER_UP_PATH}" ] && rm -rf "${USER_UP_PATH}" >/dev/null
   [ -f "${USER_CONFIG_FILE}" ] && rm -f "${USER_CONFIG_FILE}" >/dev/null
     dialog --backtitle "$(backtitle)" --title "Reset Loader" --aspect 18 \
     --yesno "Reset successful.\nReboot required!" 0 0
@@ -2051,14 +2043,12 @@ function getpatfiles() {
     fi
   elif [ ! -f "${DSM_FILE}" ] && [ "${ARCOFFLINE}" == "true" ]; then
     rm -f ${USER_UP_PATH}/*.tar
-    while true; do
-      dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
-        --msgbox "Please upload the DSM Boot File to ${USER_UP_PATH}.\nLink: https://raw.githubusercontent.com/AuxXxilium/arc-dsm/main/files/${MODEL/+/%2B}/${PRODUCTVER}/${PAT_HASH}.tar\nUse ${IPCON}:7304 and OK after Upload" 0 0
-      if [ -f "${DSM_FILE}" ]; then
-        VALID="true"
-        break
-      fi
-    done
+    dialog --backtitle "$(backtitle)" --colors --title "DSM Version" \
+      --msgbox "Please upload the DSM Boot File to ${USER_UP_PATH}.\nUse ${IPCON}:7304 to upload and press OK after it's finished.\nLink: https://github.com/AuxXxilium/arc-dsm/tree/main/files/${MODEL}/${PRODUCTVER}/${PAT_HASH}.tar" 8 120
+    [ $? -ne 0 ] && VALID="false"
+    if [ -f "${DSM_FILE}" ]; then
+      VALID="true"
+    fi
   elif [ -f "${DSM_FILE}" ]; then
     VALID="true"
   fi
@@ -2071,11 +2061,12 @@ function getpatfiles() {
   else
     dialog --backtitle "$(backtitle)" --title "DSM Extraction" --aspect 18 \
       --infobox "DSM Extraction failed!\nExit." 4 40
-    sleep 5
+    sleep 2
+    return 1
   fi
   # Cleanup
   [ -d "${UNTAR_PAT_PATH}" ] && rm -rf "${UNTAR_PAT_PATH}"
-  return
+  return 0
 }
 
 ###############################################################################
